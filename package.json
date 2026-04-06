@@ -1,0 +1,25 @@
+{
+  "name": "discord-spotify-music-bot",
+  "version": "1.0.0",
+  "description": "Discord Spotify Music Bot with AFK support and 24/7 uptime",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js"
+  },
+  "keywords": ["discord", "spotify", "music", "bot"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "@discordjs/voice": "^0.16.1",
+    "@discordjs/opus": "^0.9.0",
+    "opusscript": "^0.0.8",
+    "ffmpeg-static": "^5.2.0",
+    "dotenv": "^16.3.1",
+    "axios": "^1.6.5",
+    "libsodium-wrappers": "^0.7.13"
+  },
+  "devDependencies": {}
+}
