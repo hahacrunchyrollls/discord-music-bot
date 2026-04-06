@@ -164,7 +164,7 @@ echo ""
 
 # Create systemd service file
 echo "🔧 Creating systemd service..."
-cat > /etc/systemd/system/   <<EOF
+cat > /etc/systemd/system/discord-music-bot.service <<EOF
 [Unit]
 Description=Discord Spotify Music Bot
 After=network.target
