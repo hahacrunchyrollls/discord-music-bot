@@ -164,7 +164,7 @@ echo ""
 
 # Create systemd service file
 echo "🔧 Creating systemd service..."
-cat > /etc/systemd/system/discord-music-bot.service <<EOF
+cat > /etc/systemd/system/   <<EOF
 [Unit]
 Description=Discord Spotify Music Bot
 After=network.target
@@ -194,6 +194,8 @@ chmod 644 /etc/systemd/system/discord-music-bot.service
 # Reload systemd daemon
 echo "🔄 Reloading systemd..."
 systemctl daemon-reload
+systemctl enable discord-music-bot
+systemctl restart discord-music-bot
 
 echo ""
 echo "✅ Installation complete!"

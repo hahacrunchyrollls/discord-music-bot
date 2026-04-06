@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { Readable } from 'stream';
 
 dotenv.config();
 
@@ -44,9 +45,10 @@ const createSilentAudio = () => {
   const audioLength = sampleRate * channels * duration * (bitsPerSample / 8);
   const buffer = Buffer.alloc(audioLength);
   
-  // Fill with silence (zeros)
+  // Fill with silence (zeros for 16-bit PCM)
   buffer.fill(0);
   
+  console.log(`📦 Created silent audio buffer: ${audioLength} bytes`);
   return buffer;
 };
 
@@ -265,19 +267,59 @@ const handleStop = async (interaction) => {
 const handleJerico = async (interaction) => {
   await interaction.deferReply();
 
-  const voicechannelname = interaction.options.getString('voicechannelname');
+  const voicechannelname = interaction.options.getString('voicechannelname', true);
+  
+  // Debug logging
+  console.log(`🔍 Looking for channel: "${voicechannelname}"`);
+
+  if (!voicechannelname || voicechannelname.trim() === '') {
+    return interaction.editReply(
+      `❌ Please provide a valid voice channel name or ID.`
+    );
+  }
+
   let voiceChannel = null;
 
   // Try to find channel by name or ID
-  const channels = await interaction.guild.channels.fetch();
-  voiceChannel = channels.find(ch => 
-    (ch.type === ChannelType.GuildVoice) && 
-    (ch.name === voicechannelname || ch.id === voicechannelname)
-  );
+  try {
+    const channels = await interaction.guild.channels.fetch();
+    
+    // First try exact ID match
+    voiceChannel = channels.get(voicechannelname);
+    
+    // If not found by ID, try by name (case-insensitive)
+    if (!voiceChannel) {
+      voiceChannel = channels.find(ch => 
+        ch.type === ChannelType.GuildVoice && 
+        ch.name && 
+        ch.name.toLowerCase() === voicechannelname.toLowerCase()
+      );
+    }
+    
+    // If still not found, try partial name match
+    if (!voiceChannel) {
+      voiceChannel = channels.find(ch => 
+        ch.type === ChannelType.GuildVoice && 
+        ch.name && 
+        ch.name.includes(voicechannelname)
+      );
+    }
+  } catch (error) {
+    console.error('Error fetching channels:', error);
+    return interaction.editReply(
+      `❌ Error fetching channels: ${error.message}`
+    );
+  }
 
   if (!voiceChannel) {
+    // List available channels for debugging
+    const availableChannels = await interaction.guild.channels.fetch();
+    const voiceChannels = availableChannels.filter(ch => ch.type === ChannelType.GuildVoice);
+    const channelList = voiceChannels.map(ch => `- ${ch.name} (${ch.id})`).join('\n');
+    
     return interaction.editReply(
-      `❌ Voice channel "${voicechannelname}" not found or is not a voice channel.`
+      `❌ Voice channel "${voicechannelname}" not found.\n\n` +
+      `📍 Available voice channels:\n${channelList || 'No voice channels available'}`
     );
   }
 
@@ -291,6 +333,7 @@ const handleJerico = async (interaction) => {
       `🔄 Use \`/jerico-reset\` to reset and leave`
     );
   } catch (error) {
+    console.error('Error in handleJerico:', error);
     await interaction.editReply(`❌ Error: ${error.message}`);
   }
 };
@@ -341,33 +384,60 @@ const handleJericoReset = async (interaction) => {
 const joinAndPlaySilent = async (voiceChannel, guild) => {
   const guildId = guild.id;
 
+  console.log(`🎤 Starting joinAndPlaySilent for channel: ${voiceChannel.name}`);
+
   // Stop existing player if any
   if (activePlayers.has(guildId)) {
-    activePlayers.get(guildId).stop();
+    try {
+      activePlayers.get(guildId).stop();
+    } catch (error) {
+      console.error('Error stopping existing player:', error);
+    }
   }
 
   // Disconnect existing connection if any
   if (activeConnections.has(guildId)) {
-    activeConnections.get(guildId).destroy();
+    try {
+      activeConnections.get(guildId).destroy();
+    } catch (error) {
+      console.error('Error destroying existing connection:', error);
+    }
   }
 
-  // Create audio resource from silent buffer
-  if (!silentAudioBuffer) {
-    silentAudioBuffer = createSilentAudio();
-  }
-
-  const resource = createAudioResource(
-    Buffer.from(silentAudioBuffer),
-    { inlineVolume: true }
-  );
-  resource.volume.setVolume(0.01); // Minimal volume
-
-  // Create player
+  // Create player first
   const player = createAudioPlayer();
-  
-  // Loop the silent audio
+  console.log(`🎵 Audio player created`);
+
+  // Create a function to generate fresh resources
+  const createSilentResource = () => {
+    const buffer = createSilentAudio();
+    const resource = createAudioResource(
+      Readable.from([buffer]),
+      { inlineVolume: true }
+    );
+    resource.volume.setVolume(0.01); // Minimal volume (silent)
+    console.log(`📻 Audio resource created`);
+    return resource;
+  };
+
+  // Play resource on idle (loop the silent audio)
   player.on(AudioPlayerStatus.Idle, () => {
-    player.play(resource);
+    console.log(`♻️ Player idle, replaying silent audio...`);
+    try {
+      const resource = createSilentResource();
+      player.play(resource);
+    } catch (error) {
+      console.error('Error replaying silent audio:', error);
+    }
+  });
+
+  // Handle player errors
+  player.on('error', error => {
+    console.error(`❌ Player error: ${error.message}`);
+  });
+
+  player.on(AudioPlayerStatus.Playing, () => {
+    console.log(`▶️ Player is now playing`);
   });
 
   // Join voice channel
@@ -377,28 +447,65 @@ const joinAndPlaySilent = async (voiceChannel, guild) => {
     adapterCreator: guild.voiceAdapterCreator,
   });
 
-  // Handle connection errors
+  console.log(`🔌 Voice connection created, waiting for ready state...`);
+
+  // Wait for connection to be ready
+  try {
+    await entersState(connection, VoiceConnectionStatus.Ready, 30000);
+    console.log(`✅ Connection is ready, subscribing player...`);
+  } catch (error) {
+    console.error(`❌ Failed to enter ready state: ${error.message}`);
+    connection.destroy();
+    throw new Error('Could not connect to voice channel');
+  }
+
+  // Subscribe player to connection
+  connection.subscribe(player);
+  console.log(`📡 Player subscribed to connection`);
+
+  // Handle connection disconnection
   connection.on(VoiceConnectionStatus.Disconnected, () => {
     console.log(`⚠️ Disconnected from ${voiceChannel.name}, attempting to reconnect...`);
     try {
-      entersState(connection, VoiceConnectionStatus.Connecting, 5000).catch(() => {
+      entersState(connection, VoiceConnectionStatus.Connecting, 5000).then(() => {
+        console.log(`✅ Reconnection successful`);
+      }).catch(() => {
+        console.log(`❌ Failed to reconnect, destroying connection...`);
         connection.destroy();
         activeConnections.delete(guildId);
+        activePlayers.delete(guildId);
       });
     } catch (error) {
+      console.error('Reconnection error:', error);
       connection.destroy();
       activeConnections.delete(guildId);
+      activePlayers.delete(guildId);
     }
   });
 
   connection.on(VoiceConnectionStatus.Destroyed, () => {
     console.log(`🔌 Connection destroyed for guild ${guildId}`);
     activeConnections.delete(guildId);
+    activePlayers.delete(guildId);
   });
 
-  connection.subscribe(player);
-  player.play(resource);
+  // Handle connection errors
+  connection.on('error', error => {
+    console.error(`❌ Connection error: ${error.message}`);
+  });
 
+  // Start playing silent audio
+  try {
+    const initialResource = createSilentResource();
+    player.play(initialResource);
+    console.log(`▶️ Playing initial silent audio...`);
+  } catch (error) {
+    console.error('Error starting initial play:', error);
+    connection.destroy();
+    throw error;
+  }
+
+  // Store connection and player
   activeConnections.set(guildId, connection);
   activePlayers.set(guildId, player);
 
