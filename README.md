@@ -137,12 +137,13 @@ Play music from a query, YouTube URL, or Spotify URL.
 /play https://www.youtube.com/watch?v=...
 ```
 
-### 🔇 `/afk [channel]`
-Join a voice channel and stay AFK with silent audio. The bot will never disconnect.
+### 🎵 `/jerico [voicechannelname]`
+Join a voice channel and stay AFK 24/7 with silent audio. The bot will never disconnect.
 
 ```
-/afk general
-/afk 1234567890
+/jerico general
+/jerico music-room
+/jerico 1234567890
 ```
 
 ### ⏹️ `/stop`
@@ -152,11 +153,11 @@ Stop playing music and disconnect from the voice channel.
 /stop
 ```
 
-### 👋 `/leave`
-Leave the voice channel.
+### 🔄 `/jerico-reset`
+Reset commands and leave the voice channel. The bot will refresh and check for new commands.
 
 ```
-/leave
+/jerico-reset
 ```
 
 ### 🏓 `/ping`

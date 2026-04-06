@@ -5,11 +5,11 @@
 ### Bot Commands (Discord Slash Commands)
 
 ```
-/play <query>              - Play music
-/afk <channel>             - Stay AFK in voice channel
-/stop                      - Stop music
-/leave                     - Leave voice channel
-/ping                      - Check latency
+/play <query>                    - Play music
+/jerico <voicechannelname>       - Join voice channel and stay AFK 24/7
+/stop                            - Stop music
+/jerico-reset                    - Reset commands and leave voice channel
+/ping                            - Check latency
 ```
 
 ## VPS Quick Commands

@@ -143,20 +143,20 @@ const registerCommands = async (guild) => {
         description: 'Stop playing music',
       },
       {
-        name: 'afk',
-        description: 'Join a voice channel and stay AFK with silent audio',
+        name: 'jerico',
+        description: 'Join a voice channel and stay AFK 24/7 with silent audio',
         options: [
           {
-            name: 'channel',
-            description: 'Voice channel name or ID',
+            name: 'voicechannelname',
+            description: 'Voice channel name or ID to join',
             type: 3,
             required: true,
           },
         ],
       },
       {
-        name: 'leave',
-        description: 'Leave the voice channel',
+        name: 'jerico-reset',
+        description: 'Reset commands and leave the voice channel',
       },
       {
         name: 'ping',
@@ -190,11 +190,11 @@ client.on('interactionCreate', async (interaction) => {
       case 'stop':
         await handleStop(interaction);
         break;
-      case 'afk':
-        await handleAFK(interaction);
+      case 'jerico':
+        await handleJerico(interaction);
         break;
-      case 'leave':
-        await handleLeave(interaction);
+      case 'jerico-reset':
+        await handleJericoReset(interaction);
         break;
       case 'ping':
         await interaction.reply(`🏓 Pong! Latency: ${client.ws.ping}ms`);
@@ -262,51 +262,80 @@ const handleStop = async (interaction) => {
   await interaction.reply('⏹️ Music stopped. Bot is leaving the channel.');
 };
 
-const handleAFK = async (interaction) => {
+const handleJerico = async (interaction) => {
   await interaction.deferReply();
 
-  const channelInput = interaction.options.getString('channel');
+  const voicechannelname = interaction.options.getString('voicechannelname');
   let voiceChannel = null;
 
   // Try to find channel by name or ID
   const channels = await interaction.guild.channels.fetch();
   voiceChannel = channels.find(ch => 
     (ch.type === ChannelType.GuildVoice) && 
-    (ch.name === channelInput || ch.id === channelInput)
+    (ch.name === voicechannelname || ch.id === voicechannelname)
   );
 
   if (!voiceChannel) {
     return interaction.editReply(
-      `❌ Voice channel "${channelInput}" not found or is not a voice channel.`
+      `❌ Voice channel "${voicechannelname}" not found or is not a voice channel.`
     );
   }
 
   try {
     await joinAndPlaySilent(voiceChannel, interaction.guild);
     await interaction.editReply(
-      `✅ Bot is now in AFK mode in **${voiceChannel.name}**\n` +
+      `✅ **Jerico** is now online! 🎵\n` +
+      `📍 Voice Channel: **${voiceChannel.name}**\n` +
       `🔇 Playing silent audio to maintain connection...\n` +
-      `⏱️ Will stay online 24/7`
+      `⏱️ Will stay online 24/7 without disconnecting\n` +
+      `🔄 Use \`/jerico-reset\` to reset and leave`
     );
   } catch (error) {
     await interaction.editReply(`❌ Error: ${error.message}`);
   }
 };
 
-const handleLeave = async (interaction) => {
+const handleJericoReset = async (interaction) => {
   const guildId = interaction.guild.id;
 
+  let wasInChannel = false;
+  let channelName = 'N/A';
+
+  // Get channel name before disconnecting
+  if (activeConnections.has(guildId)) {
+    const connection = activeConnections.get(guildId);
+    const channel = connection.joinConfig.channelId;
+    const guild = client.guilds.cache.get(guildId);
+    if (guild) {
+      const voiceChannel = guild.channels.cache.get(channel);
+      if (voiceChannel) {
+        channelName = voiceChannel.name;
+        wasInChannel = true;
+      }
+    }
+  }
+
+  // Stop player
   if (activePlayers.has(guildId)) {
     activePlayers.get(guildId).stop();
     activePlayers.delete(guildId);
   }
 
+  // Destroy connection
   if (activeConnections.has(guildId)) {
     activeConnections.get(guildId).destroy();
     activeConnections.delete(guildId);
   }
 
-  await interaction.reply('👋 Bot is leaving the voice channel.');
+  // Re-register commands to check for new ones
+  const guild = interaction.guild;
+  await registerCommands(guild);
+
+  const message = wasInChannel 
+    ? `🔄 **Reset Complete!**\n👋 Left voice channel **${channelName}**\n✅ Commands refreshed and ready` 
+    : `🔄 **Reset Complete!**\n✅ Commands refreshed and ready`;
+  
+  await interaction.reply(message);
 };
 
 const joinAndPlaySilent = async (voiceChannel, guild) => {

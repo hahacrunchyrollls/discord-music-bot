@@ -54,7 +54,7 @@ Your bot should go **ONLINE** in Discord (see it in member list).
 
 In Discord, type these:
 - `/ping` - Check if bot responds
-- `/afk general` - Join and stay in voice
+- `/jerico general` - Join and stay in voice
 - Click command → Send
 
 **Congratulations!** Your bot works! 🎉
@@ -95,9 +95,9 @@ Done! Bot now runs 24/7 with auto-restart.
 | Command | What It Does |
 |---------|------------|
 | `/play <query>` | Play music |
-| `/afk <channel>` | Stay AFK forever |
+| `/jerico <voicechannelname>` | Join and stay AFK 24/7 |
 | `/stop` | Stop & leave |
-| `/leave` | Leave channel |
+| `/jerico-reset` | Reset commands and leave channel |
 | `/ping` | Check status |
 
 **Only admin (you) can use these.**
@@ -111,7 +111,7 @@ Done! Bot now runs 24/7 with auto-restart.
 | Bot won't start | Check `.env` file exists |
 | Commands don't appear | Reinvite bot to server |
 | Bot offline | `npm start` or check VPS: `sudo systemctl restart discord-music-bot` |
-| Can't find channel | Use channel name exactly: `/afk general` |
+| Can't find channel | Use channel name exactly: `/jerico general` |
 
 More help → See [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
@@ -141,7 +141,7 @@ More help → See [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 - [ ] Ran `npm install`
 - [ ] Ran `npm start` - bot is online
 - [ ] Tested `/ping` command
-- [ ] Tested `/afk` command
+- [ ] Tested `/jerico` command
 - [ ] (Optional) Deployed to VPS
 
 ---
