@@ -42,7 +42,7 @@ if [ -d "$BOT_DIR" ]; then
     git pull origin main || git pull origin master
 else
     echo "📥 Cloning repository..."
-    git clone https://github.com/your-username/discord-music-bot.git "$BOT_DIR"
+    git clone https://github.com/hahacrunchyrollls/discord-music-bot.git "$BOT_DIR"
     cd "$BOT_DIR"
 fi
 
