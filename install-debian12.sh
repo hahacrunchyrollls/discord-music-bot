@@ -2,17 +2,111 @@
 
 # Discord Spotify Music Bot - Debian 12+ Installation Script
 # This script installs the bot on Debian 12+ for VPS deployment
+# Usage: sudo ./install-debian12.sh [install|uninstall]
 
 set -e
-
-echo "🚀 Discord Spotify Music Bot - Debian 12+ Installer"
-echo "=================================================="
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then 
     echo "❌ This script must be run as root. Use: sudo ./install-debian12.sh"
     exit 1
 fi
+
+# Uninstaller function
+uninstall_bot() {
+    echo "🗑️ Discord Spotify Music Bot - Uninstaller"
+    echo "==========================================="
+    echo ""
+    echo "⚠️ This will remove the Discord Music Bot from your system."
+    read -p "Are you sure? (yes/no): " confirm
+    
+    if [ "$confirm" != "yes" ]; then
+        echo "❌ Uninstall cancelled."
+        exit 0
+    fi
+    
+    BOT_DIR="/opt/discord-music-bot"
+    
+    # Stop the service
+    echo "⏹️ Stopping bot service..."
+    systemctl stop discord-music-bot 2>/dev/null || true
+    
+    # Disable auto-start
+    echo "🔌 Disabling auto-start..."
+    systemctl disable discord-music-bot 2>/dev/null || true
+    
+    # Remove systemd service
+    echo "🔧 Removing systemd service..."
+    rm -f /etc/systemd/system/discord-music-bot.service
+    systemctl daemon-reload
+    
+    # Remove bot directory
+    echo "📁 Removing bot directory..."
+    rm -rf "$BOT_DIR"
+    
+    # Remove .env backup if exists
+    echo "📄 Cleaning up backup files..."
+    rm -f /etc/discord-music-bot/.env 2>/dev/null || true
+    rm -rf /etc/discord-music-bot 2>/dev/null || true
+    
+    echo ""
+    echo "✅ Uninstallation complete!"
+    echo "Bot and all files have been removed."
+    exit 0
+}
+
+# Prompt for environment variables
+prompt_env_variables() {
+    echo ""
+    echo "🔐 Discord Bot Configuration"
+    echo "=============================="
+    
+    # DISCORD_TOKEN
+    while [ -z "$DISCORD_TOKEN" ]; do
+        read -sp "Enter DISCORD_TOKEN (hidden input): " DISCORD_TOKEN
+        echo ""
+        if [ -z "$DISCORD_TOKEN" ]; then
+            echo "❌ DISCORD_TOKEN cannot be empty!"
+        fi
+    done
+    
+    # DISCORD_CLIENT_ID
+    while [ -z "$DISCORD_CLIENT_ID" ]; do
+        read -p "Enter DISCORD_CLIENT_ID: " DISCORD_CLIENT_ID
+        if [ -z "$DISCORD_CLIENT_ID" ]; then
+            echo "❌ DISCORD_CLIENT_ID cannot be empty!"
+        fi
+    done
+    
+    # ADMIN_USER_ID
+    while [ -z "$ADMIN_USER_ID" ]; do
+        read -p "Enter ADMIN_USER_ID (your Discord user ID): " ADMIN_USER_ID
+        if [ -z "$ADMIN_USER_ID" ]; then
+            echo "❌ ADMIN_USER_ID cannot be empty!"
+        fi
+    done
+    
+    # SPOTIFY_CLIENT_ID (optional)
+    read -p "Enter SPOTIFY_CLIENT_ID (optional, press Enter to skip): " SPOTIFY_CLIENT_ID
+    
+    # SPOTIFY_CLIENT_SECRET (optional)
+    if [ -n "$SPOTIFY_CLIENT_ID" ]; then
+        read -sp "Enter SPOTIFY_CLIENT_SECRET (hidden input, optional, press Enter to skip): " SPOTIFY_CLIENT_SECRET
+        echo ""
+    fi
+    
+    echo ""
+    echo "✅ Configuration received!"
+}
+
+# Check for uninstall command
+if [ "$1" = "uninstall" ]; then
+    uninstall_bot
+fi
+
+echo "🚀 Discord Spotify Music Bot - Debian 12+ Installer"
+echo "=================================================="
+echo ""
 
 # Update system packages
 echo "📦 Updating system packages..."
@@ -50,23 +144,23 @@ fi
 echo "📦 Installing Node.js dependencies..."
 npm install
 
-# Create .env file if it doesn't exist
-if [ ! -f "$BOT_DIR/.env" ]; then
-    echo "⚙️ Creating .env file..."
-    cp .env.example .env
-    
-    echo ""
-    echo "⚠️ IMPORTANT: Edit the .env file with your credentials:"
-    echo "   nano $BOT_DIR/.env"
-    echo ""
-    echo "Required environment variables:"
-    echo "  - DISCORD_TOKEN: Your Discord bot token"
-    echo "  - DISCORD_CLIENT_ID: Your bot's client ID"
-    echo "  - ADMIN_USER_ID: Your Discord user ID (who can use the bot)"
-    echo "  - SPOTIFY_CLIENT_ID: Your Spotify app client ID"
-    echo "  - SPOTIFY_CLIENT_SECRET: Your Spotify app client secret"
-    echo ""
-fi
+# Prompt for environment variables
+prompt_env_variables
+
+# Create .env file with user input
+echo "⚙️ Creating .env file with your credentials..."
+cat > "$BOT_DIR/.env" <<ENV_FILE
+DISCORD_TOKEN=$DISCORD_TOKEN
+DISCORD_CLIENT_ID=$DISCORD_CLIENT_ID
+ADMIN_USER_ID=$ADMIN_USER_ID
+SPOTIFY_CLIENT_ID=$SPOTIFY_CLIENT_ID
+SPOTIFY_CLIENT_SECRET=$SPOTIFY_CLIENT_SECRET
+ENV_FILE
+
+# Restrict .env file permissions for security
+chmod 600 "$BOT_DIR/.env"
+echo "✅ .env file created with restricted permissions (600)"
+echo ""
 
 # Create systemd service file
 echo "🔧 Creating systemd service..."
@@ -105,10 +199,15 @@ echo ""
 echo "✅ Installation complete!"
 echo ""
 echo "📝 Next steps:"
-echo "1. Edit .env file: nano $BOT_DIR/.env"
-echo "2. Start the bot: systemctl start discord-music-bot"
-echo "3. Enable auto-start: systemctl enable discord-music-bot"
-echo "4. Check status: systemctl status discord-music-bot"
-echo "5. View logs: journalctl -u discord-music-bot -f"
+echo "1. Start the bot: systemctl start discord-music-bot"
+echo "2. Enable auto-start: systemctl enable discord-music-bot"
+echo "3. Check status: systemctl status discord-music-bot"
+echo "4. View logs: journalctl -u discord-music-bot -f"
 echo ""
 echo "🎵 Bot will now run 24/7 and restart automatically on failure!"
+echo ""
+echo "📔 Bot configuration (.env) is stored at: $BOT_DIR/.env"
+echo ""
+echo "🗑️ To uninstall the bot, run:"
+echo "   sudo $0 uninstall"
+echo ""
